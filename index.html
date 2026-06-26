@@ -1,0 +1,379 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>学校タイマー</title>
+    <style>
+        :root {
+            --bg-color: #f4f7f6;
+            --text-color: #333;
+            --primary-color: #4CAF50;
+            --bar-bg: #e0e0e0;
+            --bar-fill: #2196F3;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            margin: 0;
+            padding: 15px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            user-select: none;
+        }
+
+        .container {
+            width: 100%;
+            max-width: 400px;
+            background: #fff;
+            border-radius: 12px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+            padding: 20px;
+            box-sizing: border-box;
+        }
+
+        .header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 15px;
+        }
+
+        select {
+            padding: 5px;
+            border-radius: 4px;
+            border: 1px solid #ccc;
+            font-size: 14px;
+        }
+
+        #currentTime {
+            font-size: 18px;
+            font-weight: bold;
+            color: #666;
+        }
+
+        .status-area {
+            text-align: center;
+            margin-bottom: 20px;
+        }
+
+        #currentPeriod {
+            font-size: 24px;
+            font-weight: bold;
+            margin-bottom: 5px;
+        }
+
+        #timeRemaining {
+            font-size: 36px;
+            font-weight: bold;
+            color: var(--bar-fill);
+        }
+
+        .meter-container {
+            width: 100%;
+            height: 24px;
+            background-color: var(--bar-bg);
+            border-radius: 12px;
+            overflow: hidden;
+            position: relative;
+            margin-bottom: 10px;
+        }
+
+        #meterFill {
+            height: 100%;
+            width: 0%;
+            background-color: var(--bar-fill);
+            transition: width 1s linear;
+        }
+
+        .meter-labels {
+            display: flex;
+            justify-content: space-between;
+            font-size: 12px;
+            color: #777;
+        }
+
+        /* 設定エリア（CSV） */
+        .settings-toggle {
+            display: block;
+            width: 100%;
+            padding: 8px;
+            margin-top: 20px;
+            background-color: #eee;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 14px;
+        }
+
+        .settings-toggle:hover {
+            background-color: #ddd;
+        }
+
+        #settingsArea {
+            display: none;
+            margin-top: 15px;
+            width: 100%;
+        }
+
+        textarea {
+            width: 100%;
+            height: 150px;
+            font-family: monospace;
+            font-size: 12px;
+            padding: 8px;
+            box-sizing: border-box;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+            resize: vertical;
+        }
+
+        .save-btn {
+            display: block;
+            width: 100%;
+            padding: 10px;
+            margin-top: 10px;
+            background-color: var(--primary-color);
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-weight: bold;
+        }
+
+        .save-btn:hover {
+            background-color: #45a049;
+        }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <div class="header">
+        <select id="scheduleSelect"></select>
+        <div id="currentTime">00:00:00</div>
+    </div>
+
+    <div class="status-area">
+        <div id="currentPeriod">時間外</div>
+        <div id="timeRemaining">--:--</div>
+        <div style="font-size: 12px; color: #777;" id="timeRange">--:-- ～ --:--</div>
+    </div>
+
+    <div class="meter-container">
+        <div id="meterFill"></div>
+    </div>
+    <div class="meter-labels">
+        <span id="elapsedTime">00:00</span>
+        <span>経過</span>
+    </div>
+
+    <button class="settings-toggle" onclick="toggleSettings()">⚙️ 設定（CSVデータ）を開閉</button>
+
+    <div id="settingsArea">
+        <p style="font-size: 12px; margin: 0 0 5px 0;">フォーマット: スケジュール名,時限名,開始(HH:MM),終了(HH:MM)</p>
+        <textarea id="csvData"></textarea>
+        <button class="save-btn" onclick="saveData()">データを保存して反映</button>
+    </div>
+</div>
+
+<script>
+    // デフォルトのCSVデータ（50分・45分のサンプル）
+    const defaultCSV = `50分授業,1時間目,08:45,09:35
+50分授業,休み時間,09:35,09:45
+50分授業,2時間目,09:45,10:35
+50分授業,休み時間,10:35,10:45
+50分授業,3時間目,10:45,11:35
+50分授業,休み時間,11:35,11:45
+50分授業,4時間目,11:45,12:35
+50分授業,昼休み,12:35,13:20
+50分授業,5時間目,13:20,14:10
+50分授業,休み時間,14:10,14:20
+50分授業,6時間目,14:20,15:10
+45分授業,1時間目,08:45,09:30
+45分授業,休み時間,09:30,09:40
+45分授業,2時間目,09:40,10:25
+45分授業,休み時間,10:25,10:35
+45分授業,3時間目,10:35,11:20
+45分授業,休み時間,11:20,11:30
+45分授業,4時間目,11:30,12:15
+45分授業,昼休み,12:15,13:00
+45分授業,5時間目,13:00,13:45
+45分授業,休み時間,13:45,13:55
+45分授業,6時間目,13:55,14:40`;
+
+    let scheduleData = [];
+    let timerInterval;
+
+    // 初期化処理
+    function init() {
+        const savedCSV = localStorage.getItem('schoolTimerCSV');
+        document.getElementById('csvData').value = savedCSV ? savedCSV : defaultCSV;
+        
+        parseCSV();
+        updateSelectOptions();
+        
+        // 前回の選択を復元
+        const lastSelected = localStorage.getItem('schoolTimerSelected');
+        if (lastSelected && document.getElementById('scheduleSelect').querySelector(`option[value="${lastSelected}"]`)) {
+            document.getElementById('scheduleSelect').value = lastSelected;
+        }
+
+        document.getElementById('scheduleSelect').addEventListener('change', (e) => {
+            localStorage.setItem('schoolTimerSelected', e.target.value);
+            updateTimer();
+        });
+
+        // 1秒ごとに更新
+        if (timerInterval) clearInterval(timerInterval);
+        timerInterval = setInterval(updateTimer, 1000);
+        updateTimer();
+    }
+
+// CSVをパースしてオブジェクト配列にする
+    function parseCSV() {
+        const text = document.getElementById('csvData').value;
+        const lines = text.split(/\r?\n/); // ← これで正しく改行を読み取れます
+        
+        for (let line of lines) {
+            line = line.trim();
+            if (!line) continue;
+            const parts = line.split(',');
+            if (parts.length >= 4) {
+                scheduleData.push({
+                    scheduleName: parts[0].trim(),
+                    periodName: parts[1].trim(),
+                    startStr: parts[2].trim(),
+                    endStr: parts[3].trim()
+                });
+            }
+        }
+    }
+
+    // プルダウンの選択肢を更新
+    function updateSelectOptions() {
+        const select = document.getElementById('scheduleSelect');
+        const currentVal = select.value;
+        select.innerHTML = '';
+        
+        const scheduleNames = [...new Set(scheduleData.map(d => d.scheduleName))];
+        
+        scheduleNames.forEach(name => {
+            const option = document.createElement('option');
+            option.value = name;
+            option.textContent = name;
+            select.appendChild(option);
+        });
+
+        if (scheduleNames.includes(currentVal)) {
+            select.value = currentVal;
+        }
+    }
+
+    // 文字列(HH:MM)を本日のDateオブジェクトに変換
+    function timeStrToDate(timeStr, now) {
+        const [hours, minutes] = timeStr.split(':').map(Number);
+        const d = new Date(now.getTime());
+        d.setHours(hours, minutes, 0, 0);
+        return d;
+    }
+
+    // タイマーとUIの更新
+    function updateTimer() {
+        const now = new Date();
+        const timeStr = now.toLocaleTimeString('ja-JP', { hour12: false });
+        document.getElementById('currentTime').textContent = timeStr;
+
+        const currentScheduleName = document.getElementById('scheduleSelect').value;
+        const currentSchedule = scheduleData.filter(d => d.scheduleName === currentScheduleName);
+
+        let activePeriod = null;
+
+        for (let period of currentSchedule) {
+            const startTime = timeStrToDate(period.startStr, now);
+            const endTime = timeStrToDate(period.endStr, now);
+
+            if (now >= startTime && now < endTime) {
+                activePeriod = { ...period, startTime, endTime };
+                break;
+            }
+        }
+
+        const currentPeriodEl = document.getElementById('currentPeriod');
+        const timeRemainingEl = document.getElementById('timeRemaining');
+        const meterFillEl = document.getElementById('meterFill');
+        const elapsedTimeEl = document.getElementById('elapsedTime');
+        const timeRangeEl = document.getElementById('timeRange');
+
+        if (activePeriod) {
+            // 現在の時限名と時間帯
+            currentPeriodEl.textContent = activePeriod.periodName;
+            timeRangeEl.textContent = `${activePeriod.startStr} ～ ${activePeriod.endStr}`;
+
+            // 色の変更（休み時間なら色を変えるなどの視覚的工夫）
+            if (activePeriod.periodName.includes('休み')) {
+                document.documentElement.style.setProperty('--bar-fill', '#ff9800'); // オレンジ
+            } else {
+                document.documentElement.style.setProperty('--bar-fill', '#2196F3'); // ブルー
+            }
+
+            // 計算
+            const totalMs = activePeriod.endTime - activePeriod.startTime;
+            const elapsedMs = now - activePeriod.startTime;
+            const remainingMs = activePeriod.endTime - now;
+
+            const remainingMin = Math.floor(remainingMs / 60000);
+            const remainingSec = Math.floor((remainingMs % 60000) / 1000);
+            
+            const elapsedMin = Math.floor(elapsedMs / 60000);
+            const elapsedSec = Math.floor((elapsedMs % 60000) / 1000);
+
+            // 表示更新
+            timeRemainingEl.textContent = `あと ${String(remainingMin).padStart(2, '0')}:${String(remainingSec).padStart(2, '0')}`;
+            elapsedTimeEl.textContent = `${String(elapsedMin).padStart(2, '0')}:${String(elapsedSec).padStart(2, '0')}`;
+            
+            // メーターのパーセンテージ
+            const percent = (elapsedMs / totalMs) * 100;
+            meterFillEl.style.width = `${percent}%`;
+
+        } else {
+            // 時間外の処理
+            currentPeriodEl.textContent = "授業時間外";
+            timeRemainingEl.textContent = "--:--";
+            timeRangeEl.textContent = "現在設定された時間外です";
+            elapsedTimeEl.textContent = "00:00";
+            meterFillEl.style.width = "0%";
+            document.documentElement.style.setProperty('--bar-fill', '#999');
+        }
+    }
+
+    // 設定エリアの開閉
+    function toggleSettings() {
+        const area = document.getElementById('settingsArea');
+        if (area.style.display === 'none' || area.style.display === '') {
+            area.style.display = 'block';
+        } else {
+            area.style.display = 'none';
+        }
+    }
+
+    // データの保存
+    function saveData() {
+        const text = document.getElementById('csvData').value;
+        localStorage.setItem('schoolTimerCSV', text);
+        parseCSV();
+        updateSelectOptions();
+        updateTimer();
+        alert('データを保存し、反映しました。');
+        toggleSettings();
+    }
+
+    // 起動
+    init();
+
+</script>
+</body>
+</html>
