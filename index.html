@@ -183,7 +183,7 @@ resizeTo(800,600);
 </div>
 
 <script>
-    // デフォルトのCSVデータ（50分・45分のサンプル）
+// デフォルトのCSVデータ（50分・45分のサンプル）
     const defaultCSV = `50分授業,1時間目,08:45,09:35
 50分授業,休み時間,09:35,09:45
 50分授業,2時間目,09:45,10:35
@@ -194,21 +194,11 @@ resizeTo(800,600);
 50分授業,昼休み,12:35,13:20
 50分授業,5時間目,13:20,14:10
 50分授業,休み時間,14:10,14:20
-50分授業,6時間目,14:20,15:10
-45分授業,1時間目,08:45,09:30
-45分授業,休み時間,09:30,09:40
-45分授業,2時間目,09:40,10:25
-45分授業,休み時間,10:25,10:35
-45分授業,3時間目,10:35,11:20
-45分授業,休み時間,11:20,11:30
-45分授業,4時間目,11:30,12:15
-45分授業,昼休み,12:15,13:00
-45分授業,5時間目,13:00,13:45
-45分授業,休み時間,13:45,13:55
-45分授業,6時間目,13:55,14:40`;
+50分授業,6時間目,14:20,15:10`;
 
     let scheduleData = [];
     let timerInterval;
+    let lastPeriodName = ""; // ★前回チェック時の時限名を記憶する変数
 
     // 初期化処理
     function init() {
@@ -218,6 +208,11 @@ resizeTo(800,600);
         parseCSV();
         updateSelectOptions();
         
+        // 通知の許可をブラウザにリクエストする
+        if (Notification.permission !== "granted") {
+            Notification.requestPermission();
+        }
+        
         // 前回の選択を復元
         const lastSelected = localStorage.getItem('schoolTimerSelected');
         if (lastSelected && document.getElementById('scheduleSelect').querySelector(`option[value="${lastSelected}"]`)) {
@@ -226,6 +221,7 @@ resizeTo(800,600);
 
         document.getElementById('scheduleSelect').addEventListener('change', (e) => {
             localStorage.setItem('schoolTimerSelected', e.target.value);
+            lastPeriodName = ""; // スケジュールが変わったらリセット
             updateTimer();
         });
 
@@ -235,10 +231,11 @@ resizeTo(800,600);
         updateTimer();
     }
 
-// CSVをパースしてオブジェクト配列にする
+    // CSVをパースしてオブジェクト配列にする
     function parseCSV() {
         const text = document.getElementById('csvData').value;
-        const lines = text.split(/\r?\n/); // ← これで正しく改行を読み取れます
+        const lines = text.split(/\r?\n/); // ★修正済みの改行コード
+        scheduleData = [];
         
         for (let line of lines) {
             line = line.trim();
@@ -311,18 +308,21 @@ resizeTo(800,600);
         const timeRangeEl = document.getElementById('timeRange');
 
         if (activePeriod) {
-            // 現在の時限名と時間帯
             currentPeriodEl.textContent = activePeriod.periodName;
             timeRangeEl.textContent = `${activePeriod.startStr} ～ ${activePeriod.endStr}`;
 
-            // 色の変更（休み時間なら色を変えるなどの視覚的工夫）
+            // ★時限が切り替わった瞬間の処理（通知を出す）
+            if (lastPeriodName !== "" && lastPeriodName !== activePeriod.periodName) {
+                sendNotification(`「${activePeriod.periodName}」が始まりました！`, `${activePeriod.startStr} ～ ${activePeriod.endStr}`);
+            }
+            lastPeriodName = activePeriod.periodName; // 現在の時限名を記録
+
             if (activePeriod.periodName.includes('休み')) {
-                document.documentElement.style.setProperty('--bar-fill', '#ff9800'); // オレンジ
+                document.documentElement.style.setProperty('--bar-fill', '#ff9800');
             } else {
-                document.documentElement.style.setProperty('--bar-fill', '#2196F3'); // ブルー
+                document.documentElement.style.setProperty('--bar-fill', '#2196F3');
             }
 
-            // 計算
             const totalMs = activePeriod.endTime - activePeriod.startTime;
             const elapsedMs = now - activePeriod.startTime;
             const remainingMs = activePeriod.endTime - now;
@@ -333,22 +333,32 @@ resizeTo(800,600);
             const elapsedMin = Math.floor(elapsedMs / 60000);
             const elapsedSec = Math.floor((elapsedMs % 60000) / 1000);
 
-            // 表示更新
             timeRemainingEl.textContent = `あと ${String(remainingMin).padStart(2, '0')}:${String(remainingSec).padStart(2, '0')}`;
             elapsedTimeEl.textContent = `${String(elapsedMin).padStart(2, '0')}:${String(elapsedSec).padStart(2, '0')}`;
             
-            // メーターのパーセンテージ
             const percent = (elapsedMs / totalMs) * 100;
             meterFillEl.style.width = `${percent}%`;
 
         } else {
-            // 時間外の処理
             currentPeriodEl.textContent = "授業時間外";
             timeRemainingEl.textContent = "--:--";
             timeRangeEl.textContent = "現在設定された時間外です";
             elapsedTimeEl.textContent = "00:00";
             meterFillEl.style.width = "0%";
             document.documentElement.style.setProperty('--bar-fill', '#999');
+            
+            // 時間外になった時も通知（不要なら消してください）
+            if (lastPeriodName !== "" && lastPeriodName !== "授業時間外") {
+                sendNotification("本日の日課が終了しました", "お疲れ様でした！");
+            }
+            lastPeriodName = "授業時間外";
+        }
+    }
+
+    // ★デスクトップ通知を送信する関数
+    function sendNotification(title, body) {
+        if (Notification.permission === "granted") {
+            new Notification(title, { body: body });
         }
     }
 
@@ -368,6 +378,7 @@ resizeTo(800,600);
         localStorage.setItem('schoolTimerCSV', text);
         parseCSV();
         updateSelectOptions();
+        lastPeriodName = ""; // 強制的に再チェック
         updateTimer();
         alert('データを保存し、反映しました。');
         toggleSettings();
