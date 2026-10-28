@@ -2,188 +2,167 @@
 <html lang="ja">
 <head>
     <meta charset="UTF-8">
-    <script language=”javascript”>
-resizeTo(800,600);
-</script>
-    <title>学校タイマー</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>学校タイマー (時限 & 補正機能付き)</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
     <style>
-        :root {
-            --bg-color: #f4f7f6;
-            --text-color: #333;
-            --primary-color: #4CAF50;
-            --bar-bg: #e0e0e0;
-            --bar-fill: #2196F3;
-        }
-
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800&display=swap');
         body {
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            background-color: var(--bg-color);
-            color: var(--text-color);
-            margin: 0;
-            padding: 15px;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            user-select: none;
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            background-color: #f1f5f9;
         }
-
-        .container {
-            width: 100%;
-            max-width: 400px;
-            background: #fff;
-            border-radius: 12px;
-            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
-            padding: 20px;
-            box-sizing: border-box;
-        }
-
-        .header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            margin-bottom: 15px;
-        }
-
-        select {
-            padding: 5px;
-            border-radius: 4px;
-            border: 1px solid #ccc;
-            font-size: 14px;
-        }
-
-        #currentTime {
-            font-size: 18px;
-            font-weight: bold;
-            color: #666;
-        }
-
-        .status-area {
-            text-align: center;
-            margin-bottom: 20px;
-        }
-
-        #currentPeriod {
-            font-size: 24px;
-            font-weight: bold;
-            margin-bottom: 5px;
-        }
-
-        #timeRemaining {
-            font-size: 36px;
-            font-weight: bold;
-            color: var(--bar-fill);
-        }
-
-        .meter-container {
-            width: 100%;
-            height: 24px;
-            background-color: var(--bar-bg);
-            border-radius: 12px;
-            overflow: hidden;
-            position: relative;
-            margin-bottom: 10px;
-        }
-
-        #meterFill {
-            height: 100%;
-            width: 0%;
-            background-color: var(--bar-fill);
-            transition: width 1s linear;
-        }
-
-        .meter-labels {
-            display: flex;
-            justify-content: space-between;
-            font-size: 12px;
-            color: #777;
-        }
-
-        /* 設定エリア（CSV） */
-        .settings-toggle {
-            display: block;
-            width: 100%;
-            padding: 8px;
-            margin-top: 20px;
-            background-color: #eee;
-            border: none;
-            border-radius: 4px;
-            cursor: pointer;
-            font-size: 14px;
-        }
-
-        .settings-toggle:hover {
-            background-color: #ddd;
-        }
-
-        #settingsArea {
-            display: none;
-            margin-top: 15px;
-            width: 100%;
-        }
-
-        textarea {
-            width: 100%;
-            height: 150px;
-            font-family: monospace;
-            font-size: 12px;
-            padding: 8px;
-            box-sizing: border-box;
-            border: 1px solid #ccc;
-            border-radius: 4px;
-            resize: vertical;
-        }
-
-        .save-btn {
-            display: block;
-            width: 100%;
-            padding: 10px;
-            margin-top: 10px;
-            background-color: var(--primary-color);
-            color: white;
-            border: none;
-            border-radius: 4px;
-            cursor: pointer;
-            font-weight: bold;
-        }
-
-        .save-btn:hover {
-            background-color: #45a049;
+        .progress-bar-fill {
+            transition: width 1s linear, background-color 0.3s ease;
         }
     </style>
 </head>
-<body>
+<body class="min-h-screen flex items-center justify-center p-4 text-slate-800">
 
-<div class="container">
-    <div class="header">
-        <select id="scheduleSelect"></select>
-        <div id="currentTime">00:00:00</div>
+<div class="w-full max-w-md bg-white rounded-2xl shadow-xl p-6 relative border border-slate-100">
+
+    <!-- Header / Select Area -->
+    <div class="flex justify-between items-center mb-6 pb-4 border-b border-slate-100">
+        <select id="scheduleSelect" class="bg-slate-50 border border-slate-300 text-slate-700 text-sm font-semibold rounded-lg focus:ring-blue-500 focus:border-blue-500 p-2.5 outline-none cursor-pointer">
+            <!-- Dynamically Populated -->
+        </select>
+        <div class="text-right">
+            <div id="currentTime" class="text-xl font-bold font-mono text-slate-700 tracking-wider">00:00:00</div>
+            <div id="offsetBadge" class="text-[10px] text-slate-400 font-mono mt-0.5">補正: 0秒</div>
+        </div>
     </div>
 
-    <div class="status-area">
-        <div id="currentPeriod">時間外</div>
-        <div id="timeRemaining">--:--</div>
-        <div style="font-size: 12px; color: #777;" id="timeRange">--:-- ～ --:--</div>
+    <!-- Status Area -->
+    <div class="text-center mb-6">
+        <div id="currentPeriod" class="text-2xl font-black text-slate-800 tracking-tight mb-1">授業時間外</div>
+        <div id="timeRemaining" class="text-5xl font-extrabold font-mono text-blue-600 tracking-tight my-3">--:--</div>
+        <div id="timeRange" class="text-xs font-semibold text-slate-400 bg-slate-100 inline-block px-3 py-1 rounded-full">--:-- ～ --:--</div>
     </div>
 
-    <div class="meter-container">
-        <div id="meterFill"></div>
-    </div>
-    <div class="meter-labels">
-        <span id="elapsedTime">00:00</span>
-        <span>経過</span>
+    <!-- Progress Meter -->
+    <div class="mb-6">
+        <div class="w-full bg-slate-100 rounded-full h-5 overflow-hidden p-1 border border-slate-200 shadow-inner">
+            <div id="meterFill" class="progress-bar-fill h-full bg-blue-500 rounded-full w-0"></div>
+        </div>
+        <div class="flex justify-between text-xs font-semibold text-slate-400 mt-2 px-1">
+            <span>経過時間: <span id="elapsedTime" class="font-mono">00:00</span></span>
+            <span id="periodProgressPct" class="font-mono">0%</span>
+        </div>
     </div>
 
-    <button class="settings-toggle" onclick="toggleSettings()">⚙️ 設定（CSVデータ）を開閉</button>
+    <!-- Settings Toggle Button -->
+    <button onclick="toggleSettings()" class="w-full py-2.5 px-4 bg-slate-100 hover:bg-slate-200 text-slate-600 text-sm font-bold rounded-xl transition flex items-center justify-center gap-2">
+        <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+        </svg>
+        設定・時刻補正 (チャイム合わせ)
+    </button>
 
-    <div id="settingsArea">
-        <p style="font-size: 12px; margin: 0 0 5px 0;">フォーマット: スケジュール名,時限名,開始(HH:MM),終了(HH:MM)</p>
-        <textarea id="csvData"></textarea>
-        <button class="save-btn" onclick="saveData()">データを保存して反映</button>
+    <!-- Hidden Settings Panel -->
+    <div id="settingsArea" class="hidden mt-4 pt-4 border-t border-slate-100 transition-all">
+        <!-- Chime Correction Button -->
+        <div class="bg-amber-50 border border-amber-200 rounded-xl p-3.5 mb-4 text-center">
+            <button onclick="requestChimeAdjustment()" class="w-full py-3 px-4 bg-amber-500 hover:bg-amber-600 active:bg-amber-700 text-white font-bold rounded-lg shadow-sm transition flex items-center justify-center gap-2">
+                🔔 今チャイムが鳴った！(時刻補正)
+            </button>
+            <p class="text-xs text-amber-700 font-semibold mt-2">実際のチャイムとズレている時に押すと秒単位で補正します</p>
+        </div>
+
+        <div class="mb-3">
+            <label class="block text-xs font-bold text-slate-600 mb-1">CSVデータ設定:</label>
+            <p class="text-[11px] text-slate-400 mb-2">形式: スケジュール名,時限名,開始(HH:MM),終了(HH:MM)</p>
+            <textarea id="csvData" class="w-full h-36 font-mono text-xs p-2.5 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:outline-none"></textarea>
+        </div>
+
+        <button onclick="saveData()" class="w-full py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-sm rounded-lg transition">
+            データを保存して反映
+        </button>
+    </div>
+
+    <!-- 使い方表示ボタン -->
+    <div class="mt-6 pt-4 border-t border-slate-100 text-center">
+        <button onclick="openGuideModal()" class="text-xs font-semibold text-slate-500 hover:text-blue-600 underline transition flex items-center justify-center gap-1 mx-auto">
+            <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>
+            使い方を見る
+        </button>
+    </div>
+
+</div>
+
+<!-- Custom Confirmation Modal for Chime Adjustments -->
+<div id="confirmModal" class="hidden fixed inset-0 bg-slate-900/40 backdrop-blur-sm flex items-center justify-center p-4 z-50">
+    <div class="bg-white rounded-2xl max-w-sm w-full p-6 shadow-2xl transform transition-all text-center">
+        <div class="w-12 h-12 bg-amber-100 text-amber-600 rounded-full flex items-center justify-center mx-auto mb-4 text-xl">
+            🔔
+        </div>
+        <h3 class="text-lg font-bold text-slate-800 mb-2">時刻の補正確認</h3>
+        <p id="modalMessage" class="text-sm text-slate-600 mb-6 font-medium">-- 秒修正しますか？</p>
+        <div class="flex gap-3">
+            <button onclick="cancelChimeAdjustment()" class="flex-1 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-600 font-bold rounded-xl transition text-sm">
+                キャンセル
+            </button>
+            <button onclick="applyChimeAdjustment()" class="flex-1 py-2.5 bg-amber-500 hover:bg-amber-600 text-white font-bold rounded-xl transition text-sm shadow-md">
+                修正する
+            </button>
+        </div>
+    </div>
+</div>
+
+<!-- Custom Alert Toast -->
+<div id="toast" class="fixed bottom-5 left-1/2 transform -translate-x-1/2 bg-slate-800 text-white text-xs font-semibold py-2.5 px-5 rounded-full shadow-lg opacity-0 transition-opacity duration-300 pointer-events-none z-50">
+    <span id="toastMessage"></span>
+</div>
+
+<!-- 使い方ガイド モーダル -->
+<div id="guideModal" class="hidden fixed inset-0 bg-slate-900/40 backdrop-blur-sm flex items-center justify-center p-4 z-50">
+    <div class="bg-white rounded-2xl max-w-md w-full max-h-[85vh] flex flex-col shadow-2xl overflow-hidden border border-slate-100">
+        <!-- Header -->
+        <div class="p-4 border-b border-slate-100 flex justify-between items-center bg-slate-50">
+            <h3 class="font-bold text-slate-800 flex items-center gap-2 text-base">
+                📖 アプリの使い方
+            </h3>
+            <button onclick="closeGuideModal()" class="text-slate-400 hover:text-slate-600 p-1 rounded-lg hover:bg-slate-200 transition">
+                ✕
+            </button>
+        </div>
+        <!-- Content -->
+        <div class="p-5 overflow-y-auto space-y-4 text-xs text-slate-600 leading-relaxed">
+            <section class="bg-blue-50 border border-blue-100 rounded-xl p-3">
+                <h4 class="font-bold text-blue-900 mb-1 text-sm">1. 基本画面の見方</h4>
+                <p>・<strong>現在時刻</strong>: 画面右上にリアルタイム表示（補正済）</p>
+                <p>・<strong>中央表示</strong>: 現在のコマ名と終了までのカウントダウン</p>
+                <p>・<strong>プログレスバー</strong>: コマの進行度（％）。授業は青色、休み時間はオレンジ色</p>
+            </section>
+
+            <section class="bg-amber-50 border border-amber-100 rounded-xl p-3">
+                <h4 class="font-bold text-amber-900 mb-1 text-sm">2. チャイム合わせ（時刻補正機能）</h4>
+                <p class="mb-1">実際の校内チャイムと端末の時計がずれている時に使用します。</p>
+                <ol class="list-decimal list-inside space-y-1 text-amber-900">
+                    <li>下部の <strong>「⚙️ 設定・時刻補正」</strong> を開く</li>
+                    <li>チャイムが鳴った瞬間に <strong>「🔔 今チャイムが鳴った！」</strong> を押す</li>
+                    <li>自動計算された秒数を確認し <strong>「修正する」</strong> を押す</li>
+                </ol>
+            </section>
+
+            <section class="bg-slate-50 border border-slate-200 rounded-xl p-3">
+                <h4 class="font-bold text-slate-800 mb-1 text-sm">3. スケジュールの切り替え・編集</h4>
+                <p class="mb-1">・<strong>ドロップダウン</strong>: 「50分授業」「45分授業」などを一発切り替え</p>
+                <p>・<strong>CSVデータの編集</strong>: 設定画面のテキストエリアから時間割を自由にカスタマイズ可能です。</p>
+            </section>
+        </div>
+        <!-- Footer -->
+        <div class="p-3 border-t border-slate-100 bg-slate-50 text-right">
+            <button onclick="closeGuideModal()" class="px-5 py-2 bg-slate-800 hover:bg-slate-900 text-white font-bold rounded-xl transition text-xs">
+                閉じる
+            </button>
+        </div>
     </div>
 </div>
 
 <script>
-// デフォルトのCSVデータ（50分・45分のサンプル）
     const defaultCSV = `50分授業,1時間目,08:45,09:35
 50分授業,休み時間,09:35,09:45
 50分授業,2時間目,09:45,10:35
@@ -197,23 +176,27 @@ resizeTo(800,600);
 50分授業,6時間目,14:20,15:10`;
 
     let scheduleData = [];
-    let timerInterval;
-    let lastPeriodName = ""; // ★前回チェック時の時限名を記憶する変数
+    let timerInterval = null;
+    let lastPeriodName = "";
+    let timeOffsetSec = 0; // 時間補正値（秒）
+    let pendingOffsetSec = 0; // 確定前の計算補正値
 
-    // 初期化処理
     function init() {
         const savedCSV = localStorage.getItem('schoolTimerCSV');
         document.getElementById('csvData').value = savedCSV ? savedCSV : defaultCSV;
-        
+
+        const savedOffset = localStorage.getItem('schoolTimerOffset');
+        if (savedOffset !== null) {
+            timeOffsetSec = parseInt(savedOffset, 10) || 0;
+        }
+
         parseCSV();
         updateSelectOptions();
-        
-        // 通知の許可をブラウザにリクエストする
-        if (Notification.permission !== "granted") {
+
+        if ('Notification' in window && Notification.permission !== "granted") {
             Notification.requestPermission();
         }
-        
-        // 前回の選択を復元
+
         const lastSelected = localStorage.getItem('schoolTimerSelected');
         if (lastSelected && document.getElementById('scheduleSelect').querySelector(`option[value="${lastSelected}"]`)) {
             document.getElementById('scheduleSelect').value = lastSelected;
@@ -221,20 +204,25 @@ resizeTo(800,600);
 
         document.getElementById('scheduleSelect').addEventListener('change', (e) => {
             localStorage.setItem('schoolTimerSelected', e.target.value);
-            lastPeriodName = ""; // スケジュールが変わったらリセット
+            lastPeriodName = "";
             updateTimer();
         });
 
-        // 1秒ごとに更新
         if (timerInterval) clearInterval(timerInterval);
         timerInterval = setInterval(updateTimer, 1000);
         updateTimer();
     }
 
-    // CSVをパースしてオブジェクト配列にする
+    // 補正済み現在時刻の取得
+    function getAdjustedNow() {
+        const now = new Date();
+        return new Date(now.getTime() + timeOffsetSec * 1000);
+    }
+
+    // CSVパース
     function parseCSV() {
         const text = document.getElementById('csvData').value;
-        const lines = text.split(/\r?\n/); // ★修正済みの改行コード
+        const lines = text.split(/\r?\n/);
         scheduleData = [];
         
         for (let line of lines) {
@@ -252,7 +240,7 @@ resizeTo(800,600);
         }
     }
 
-    // プルダウンの選択肢を更新
+    // ドロップダウン更新
     function updateSelectOptions() {
         const select = document.getElementById('scheduleSelect');
         const currentVal = select.value;
@@ -272,7 +260,6 @@ resizeTo(800,600);
         }
     }
 
-    // 文字列(HH:MM)を本日のDateオブジェクトに変換
     function timeStrToDate(timeStr, now) {
         const [hours, minutes] = timeStr.split(':').map(Number);
         const d = new Date(now.getTime());
@@ -280,11 +267,15 @@ resizeTo(800,600);
         return d;
     }
 
-    // タイマーとUIの更新
+    // メイン更新ループ
     function updateTimer() {
-        const now = new Date();
+        const now = getAdjustedNow();
         const timeStr = now.toLocaleTimeString('ja-JP', { hour12: false });
         document.getElementById('currentTime').textContent = timeStr;
+
+        // 補正バッジ表示
+        const sign = timeOffsetSec > 0 ? '+' : '';
+        document.getElementById('offsetBadge').textContent = `補正: ${sign}${timeOffsetSec}秒`;
 
         const currentScheduleName = document.getElementById('scheduleSelect').value;
         const currentSchedule = scheduleData.filter(d => d.scheduleName === currentScheduleName);
@@ -306,21 +297,24 @@ resizeTo(800,600);
         const meterFillEl = document.getElementById('meterFill');
         const elapsedTimeEl = document.getElementById('elapsedTime');
         const timeRangeEl = document.getElementById('timeRange');
+        const progressPctEl = document.getElementById('periodProgressPct');
 
         if (activePeriod) {
             currentPeriodEl.textContent = activePeriod.periodName;
             timeRangeEl.textContent = `${activePeriod.startStr} ～ ${activePeriod.endStr}`;
 
-            // ★時限が切り替わった瞬間の処理（通知を出す）
             if (lastPeriodName !== "" && lastPeriodName !== activePeriod.periodName) {
                 sendNotification(`「${activePeriod.periodName}」が始まりました！`, `${activePeriod.startStr} ～ ${activePeriod.endStr}`);
             }
-            lastPeriodName = activePeriod.periodName; // 現在の時限名を記録
+            lastPeriodName = activePeriod.periodName;
 
+            // バーの色とテキスト色
             if (activePeriod.periodName.includes('休み')) {
-                document.documentElement.style.setProperty('--bar-fill', '#ff9800');
+                meterFillEl.className = "progress-bar-fill h-full bg-amber-500 rounded-full";
+                timeRemainingEl.className = "text-5xl font-extrabold font-mono text-amber-500 tracking-tight my-3";
             } else {
-                document.documentElement.style.setProperty('--bar-fill', '#2196F3');
+                meterFillEl.className = "progress-bar-fill h-full bg-blue-500 rounded-full";
+                timeRemainingEl.className = "text-5xl font-extrabold font-mono text-blue-600 tracking-tight my-3";
             }
 
             const totalMs = activePeriod.endTime - activePeriod.startTime;
@@ -333,21 +327,22 @@ resizeTo(800,600);
             const elapsedMin = Math.floor(elapsedMs / 60000);
             const elapsedSec = Math.floor((elapsedMs % 60000) / 1000);
 
-            timeRemainingEl.textContent = `あと ${String(remainingMin).padStart(2, '0')}:${String(remainingSec).padStart(2, '0')}`;
+            timeRemainingEl.textContent = `${String(remainingMin).padStart(2, '0')}:${String(remainingSec).padStart(2, '0')}`;
             elapsedTimeEl.textContent = `${String(elapsedMin).padStart(2, '0')}:${String(elapsedSec).padStart(2, '0')}`;
             
-            const percent = (elapsedMs / totalMs) * 100;
+            const percent = Math.min(100, Math.max(0, (elapsedMs / totalMs) * 100));
             meterFillEl.style.width = `${percent}%`;
+            progressPctEl.textContent = `${Math.round(percent)}%`;
 
         } else {
             currentPeriodEl.textContent = "授業時間外";
             timeRemainingEl.textContent = "--:--";
+            timeRemainingEl.className = "text-5xl font-extrabold font-mono text-slate-400 tracking-tight my-3";
             timeRangeEl.textContent = "現在設定された時間外です";
             elapsedTimeEl.textContent = "00:00";
             meterFillEl.style.width = "0%";
-            document.documentElement.style.setProperty('--bar-fill', '#999');
+            progressPctEl.textContent = "0%";
             
-            // 時間外になった時も通知（不要なら消してください）
             if (lastPeriodName !== "" && lastPeriodName !== "授業時間外") {
                 sendNotification("本日の日課が終了しました", "お疲れ様でした！");
             }
@@ -355,38 +350,107 @@ resizeTo(800,600);
         }
     }
 
-    // ★デスクトップ通知を送信する関数
+    // チャイム補正要求処理
+    function requestChimeAdjustment() {
+        const realNow = new Date(); // 機械の標準時刻
+        const currentScheduleName = document.getElementById('scheduleSelect').value;
+        const currentSchedule = scheduleData.filter(d => d.scheduleName === currentScheduleName);
+
+        let targetTime = null;
+        let minDiff = Infinity;
+
+        for (let period of currentSchedule) {
+            const startTime = timeStrToDate(period.startStr, realNow);
+            const endTime = timeStrToDate(period.endStr, realNow);
+
+            const startDiff = Math.abs(realNow - startTime);
+            const endDiff = Math.abs(realNow - endTime);
+
+            if (startDiff < minDiff) {
+                minDiff = startDiff;
+                targetTime = startTime;
+            }
+            if (endDiff < minDiff) {
+                minDiff = endDiff;
+                targetTime = endTime;
+            }
+        }
+
+        if (!targetTime) {
+            showToast("補正対象の時刻が見つかりませんでした");
+            return;
+        }
+
+        // チャイム目標時刻とデバイス時刻の差（秒）
+        pendingOffsetSec = Math.round((targetTime - realNow) / 1000);
+        const signStr = pendingOffsetSec > 0 ? `+${pendingOffsetSec}` : `${pendingOffsetSec}`;
+
+        // モーダル表示
+        document.getElementById('modalMessage').innerHTML = `チャイム時刻に合わせて <br><strong class="text-amber-600 text-base font-extrabold">${Math.abs(pendingOffsetSec)}秒 (${signStr}秒)</strong> 修正しますか？`;
+        document.getElementById('confirmModal').classList.remove('hidden');
+    }
+
+    function applyChimeAdjustment() {
+        timeOffsetSec = pendingOffsetSec;
+        localStorage.setItem('schoolTimerOffset', timeOffsetSec);
+        document.getElementById('confirmModal').classList.add('hidden');
+        
+        lastPeriodName = "";
+        updateTimer();
+        
+        const signStr = timeOffsetSec > 0 ? `+${timeOffsetSec}` : `${timeOffsetSec}`;
+        showToast(`タイマー時刻を ${signStr}秒 修正しました`);
+    }
+
+    function cancelChimeAdjustment() {
+        document.getElementById('confirmModal').classList.add('hidden');
+    }
+
     function sendNotification(title, body) {
-        if (Notification.permission === "granted") {
+        if ('Notification' in window && Notification.permission === "granted") {
             new Notification(title, { body: body });
         }
     }
 
-    // 設定エリアの開閉
     function toggleSettings() {
         const area = document.getElementById('settingsArea');
-        if (area.style.display === 'none' || area.style.display === '') {
-            area.style.display = 'block';
-        } else {
-            area.style.display = 'none';
-        }
+        area.classList.toggle('hidden');
     }
 
-    // データの保存
     function saveData() {
         const text = document.getElementById('csvData').value;
         localStorage.setItem('schoolTimerCSV', text);
         parseCSV();
         updateSelectOptions();
-        lastPeriodName = ""; // 強制的に再チェック
+        lastPeriodName = "";
         updateTimer();
-        alert('データを保存し、反映しました。');
+        showToast('設定データを保存して反映しました');
         toggleSettings();
+    }
+
+    function showToast(msg) {
+        const toast = document.getElementById('toast');
+        const toastMsg = document.getElementById('toastMessage');
+        toastMsg.textContent = msg;
+        toast.classList.remove('opacity-0');
+        toast.classList.add('opacity-100');
+        setTimeout(() => {
+            toast.classList.remove('opacity-100');
+            toast.classList.add('opacity-0');
+        }, 3000);
+    }
+
+    // 使い方モーダルの開閉関数
+    function openGuideModal() {
+        document.getElementById('guideModal').classList.remove('hidden');
+    }
+
+    function closeGuideModal() {
+        document.getElementById('guideModal').classList.add('hidden');
     }
 
     // 起動
     init();
-
 </script>
 </body>
 </html>
